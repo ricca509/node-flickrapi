@@ -102,6 +102,10 @@ module.exports = (function Flickr() {
     // out-of-browser authentication unless specified otherwise
     if(!options.callback) { options.callback = "oob"; }
     if(!options.requestOptions) options.requestOptions = {};
+    if(options.noenv && !options.credentialHandler) {
+      console.err('You decided to not write auth info to env file (.env), so you need to provide' +
+      'a credentialHandler function');
+    }
 
     // effect authentication
     checkToken(options, function(err, access) {
@@ -115,11 +119,25 @@ module.exports = (function Flickr() {
                 console.log("Credentials object:");
                 console.log(JSON.stringify(data,null,2));
               }
-              var envContent = fs.readFileSync(".env") + "\n";
-              Object.keys(data).forEach(function(key) {
-                envContent += "export " + key + "=" + data[key] + "\n";
-              });
-              fs.writeFileSync(".env", envContent);
+              // write env, unless told not to
+              if(!options.noenv) {
+                var envContent = fs.readFileSync(".env") + "\n";
+                Object.keys(data).forEach(function(key) {
+                    envContent += "export " + key + "=" + data[key] + "\n";
+                });
+                fs.writeFileSync(".env", envContent);
+              }
+
+              // send credentials on for (additional) processing
+              if(options.credentialHandler)
+                // note that much earlier in the code, such as before
+                // any real code in authenticate() is run, we may want to
+                // verify that IF .noenv is set, then .credentialHandler
+                // is also set. It would be silly to wait until this point in
+                // the negotiation to throw an error if we have .noenv
+                // but no .credentialHandler
+                options.credentialHandler(data);
+              }
             };
             options.processCredentials(body);
           }
